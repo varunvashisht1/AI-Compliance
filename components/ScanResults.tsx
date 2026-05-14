@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { Finding, ScanResult } from "@/lib/scanner/types";
+import { ScoreGauge } from "./ScoreGauge";
 
 const SEV_BADGE: Record<string, string> = {
   critical: "bg-red-100 text-red-800 border border-red-200",
@@ -11,12 +12,30 @@ const SEV_BADGE: Record<string, string> = {
   info: "bg-slate-100 text-slate-700 border border-slate-200",
 };
 
-const GRADE_COLOR: Record<string, string> = {
-  A: "bg-emerald-600",
-  B: "bg-green-600",
-  C: "bg-amber-500",
-  D: "bg-orange-600",
-  F: "bg-red-700",
+const GRADE_GRADIENT: Record<string, string> = {
+  A: "from-emerald-500 to-teal-500",
+  B: "from-green-500 to-emerald-500",
+  C: "from-amber-500 to-orange-500",
+  D: "from-orange-500 to-red-500",
+  F: "from-red-600 to-rose-700",
+};
+
+const CATEGORY_LABEL: Record<Finding["category"], string> = {
+  compliance: "Compliance",
+  privacy: "Privacy",
+  security: "Security",
+  accessibility: "Accessibility",
+  seo: "SEO",
+  performance: "Performance",
+};
+
+const CATEGORY_ICON: Record<Finding["category"], string> = {
+  compliance: "⚖️",
+  privacy: "🔐",
+  security: "🛡️",
+  accessibility: "♿",
+  seo: "🔎",
+  performance: "⚡",
 };
 
 const CATEGORY_ORDER: Finding["category"][] = [
@@ -30,6 +49,7 @@ const CATEGORY_ORDER: Finding["category"][] = [
 
 export function ScanResults({ result }: { result: ScanResult }) {
   const [downloading, setDownloading] = useState(false);
+  const [filter, setFilter] = useState<Finding["category"] | "all">("all");
 
   async function downloadPdf() {
     setDownloading(true);
@@ -62,90 +82,182 @@ export function ScanResults({ result }: { result: ScanResult }) {
     }
   }
 
+  const counts: Record<Finding["severity"], number> = { critical: 0, high: 0, medium: 0, low: 0, info: 0 };
+  for (const f of result.findings) counts[f.severity] = (counts[f.severity] || 0) + 1;
+
   const grouped = CATEGORY_ORDER.map((cat) => ({
     cat,
     items: result.findings
       .filter((f) => f.category === cat)
-      .sort(
-        (a, b) =>
-          (sevRank(a.severity) - sevRank(b.severity))
-      ),
+      .sort((a, b) => sevRank(a.severity) - sevRank(b.severity)),
   })).filter((g) => g.items.length > 0);
 
+  const visibleGroups = filter === "all" ? grouped : grouped.filter((g) => g.cat === filter);
+  const grade = result.summary.overallGrade;
+
   return (
-    <div className="space-y-6">
-      <div className={`card p-6 text-white ${GRADE_COLOR[result.summary.overallGrade] || "bg-slate-700"}`}>
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <div className="text-xs uppercase tracking-wider opacity-80">Overall grade</div>
-            <div className="mt-1 text-5xl font-bold leading-none">{result.summary.overallGrade}</div>
-            <div className="mt-2 text-sm opacity-90">Risk: {result.summary.riskLevel}</div>
+    <div className="space-y-6 animate-fade-in">
+      {/* Hero card */}
+      <div className={`overflow-hidden rounded-2xl bg-gradient-to-br ${GRADE_GRADIENT[grade] || "from-slate-600 to-slate-800"} p-1 shadow-xl shadow-indigo-100/40`}>
+        <div className="rounded-[14px] bg-white/5 backdrop-blur-sm">
+          <div className="flex flex-col gap-6 p-6 text-white md:flex-row md:items-center md:justify-between md:p-8">
+            <div className="flex items-center gap-5">
+              <div className="flex h-24 w-24 shrink-0 items-center justify-center rounded-2xl bg-white/15 text-6xl font-bold backdrop-blur-sm ring-1 ring-white/20">
+                {grade}
+              </div>
+              <div>
+                <div className="text-xs font-semibold uppercase tracking-wider text-white/80">
+                  Overall grade · Risk: {result.summary.riskLevel}
+                </div>
+                <h2 className="mt-1 text-2xl font-bold leading-tight">
+                  {result.summary.headline}
+                </h2>
+                <a
+                  href={result.finalUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-2 inline-flex items-center gap-1 text-sm text-white/80 hover:text-white"
+                >
+                  {result.finalUrl}
+                  <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                    <path d="M7 17l10-10M7 7h10v10" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </a>
+              </div>
+            </div>
+            <div className="flex shrink-0 gap-2">
+              <button
+                onClick={downloadPdf}
+                disabled={downloading}
+                className="inline-flex items-center gap-2 rounded-lg bg-white px-4 py-2.5 text-sm font-semibold text-slate-900 shadow-sm transition hover:bg-slate-100 disabled:opacity-50"
+              >
+                {downloading ? (
+                  <>
+                    <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeOpacity="0.25" strokeWidth="4" />
+                      <path d="M22 12a10 10 0 01-10 10" stroke="currentColor" strokeWidth="4" strokeLinecap="round" />
+                    </svg>
+                    Generating PDF…
+                  </>
+                ) : (
+                  <>
+                    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                      <path d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                    Download PDF
+                  </>
+                )}
+              </button>
+            </div>
           </div>
-          <div className="max-w-xl text-right text-sm opacity-95">{result.summary.headline}</div>
-        </div>
-        <div className="mt-4 flex justify-end">
-          <button onClick={downloadPdf} disabled={downloading} className="rounded-lg bg-white/15 px-3 py-1.5 text-sm font-medium hover:bg-white/25 disabled:opacity-50">
-            {downloading ? "Generating PDF…" : "Download PDF report"}
-          </button>
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
-        <ScoreCard label="Compliance" value={result.scores.compliance} />
-        <ScoreCard label="Performance" value={result.scores.performance} />
-        <ScoreCard label="Accessibility" value={result.scores.accessibility} />
-        <ScoreCard label="SEO" value={result.scores.seo} />
-        <ScoreCard label="Best practices" value={result.scores.bestPractices} />
+      {/* Score gauges */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+        <ScoreGauge label="Compliance" value={result.scores.compliance} />
+        <ScoreGauge label="Performance" value={result.scores.performance} />
+        <ScoreGauge label="Accessibility" value={result.scores.accessibility} />
+        <ScoreGauge label="SEO" value={result.scores.seo} />
+        <ScoreGauge label="Best practices" value={result.scores.bestPractices} />
       </div>
 
+      {/* Severity counts */}
+      <div className="card flex flex-wrap items-center gap-3 p-4">
+        <div className="text-sm font-semibold text-slate-700">Findings:</div>
+        {(["critical", "high", "medium", "low", "info"] as const).map((sev) =>
+          counts[sev] > 0 ? (
+            <span key={sev} className={`badge ${SEV_BADGE[sev]}`}>
+              {counts[sev]} {sev}
+            </span>
+          ) : null
+        )}
+        <span className="ml-auto text-xs text-slate-500">
+          Scanned {new Date(result.scannedAt).toLocaleString()} · Region: {result.region}
+        </span>
+      </div>
+
+      {/* Executive narrative */}
       {result.aiNarrative && (
         <div className="card p-6">
-          <div className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-            Executive summary
+          <div className="flex items-center gap-2">
+            <span className="text-xl">🧠</span>
+            <div className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+              AI executive summary
+            </div>
           </div>
-          <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-slate-700">
+          <p className="mt-3 whitespace-pre-line text-[15px] leading-relaxed text-slate-700">
             {result.aiNarrative}
           </p>
         </div>
       )}
 
+      {/* Top priorities */}
       {result.summary.topPriorities.length > 0 && (
         <div className="card p-6">
-          <div className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-            Top priorities
+          <div className="flex items-center gap-2">
+            <span className="text-xl">🎯</span>
+            <div className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+              Top priorities
+            </div>
           </div>
-          <ol className="mt-3 space-y-2">
+          <ol className="mt-4 space-y-3">
             {result.summary.topPriorities.map((p, i) => (
               <li key={i} className="flex gap-3 text-sm">
-                <span className="font-semibold text-indigo-600">{i + 1}.</span>
-                <span className="text-slate-700">{p}</span>
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-indigo-100 font-semibold text-indigo-700">
+                  {i + 1}
+                </span>
+                <span className="text-slate-800">{p}</span>
               </li>
             ))}
           </ol>
         </div>
       )}
 
-      {grouped.map(({ cat, items }) => (
+      {/* Category filter */}
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          onClick={() => setFilter("all")}
+          className={`chip transition ${filter === "all" ? "border-indigo-300 bg-indigo-50 text-indigo-700" : ""}`}
+        >
+          All ({result.findings.length})
+        </button>
+        {grouped.map(({ cat, items }) => (
+          <button
+            key={cat}
+            onClick={() => setFilter(cat)}
+            className={`chip transition ${filter === cat ? "border-indigo-300 bg-indigo-50 text-indigo-700" : ""}`}
+          >
+            <span>{CATEGORY_ICON[cat]}</span>
+            {CATEGORY_LABEL[cat]} ({items.length})
+          </button>
+        ))}
+      </div>
+
+      {/* Findings */}
+      {visibleGroups.map(({ cat, items }) => (
         <section key={cat} className="card p-6">
-          <h2 className="mb-3 text-base font-semibold capitalize text-slate-900">
-            {cat} <span className="text-slate-400">· {items.length}</span>
-          </h2>
+          <h3 className="mb-4 flex items-center gap-2 text-base font-semibold text-slate-900">
+            <span className="text-xl">{CATEGORY_ICON[cat]}</span>
+            {CATEGORY_LABEL[cat]}
+            <span className="text-slate-400">· {items.length}</span>
+          </h3>
           <ul className="divide-y divide-slate-100">
             {items.map((f) => (
-              <li key={f.id} className="py-3">
+              <li key={f.id} className="py-4 first:pt-0 last:pb-0">
                 <div className="flex flex-wrap items-start justify-between gap-2">
-                  <div className="font-medium text-slate-900">{f.title}</div>
+                  <div className="font-semibold text-slate-900">{f.title}</div>
                   <span className={`badge ${SEV_BADGE[f.severity] || SEV_BADGE.info}`}>
                     {f.severity}
                   </span>
                 </div>
-                <p className="mt-1 text-sm text-slate-600">{f.detail}</p>
-                <p className="mt-1 text-sm text-slate-800">
-                  <span className="font-medium">Fix: </span>
+                <p className="mt-1.5 text-sm leading-relaxed text-slate-600">{f.detail}</p>
+                <div className="mt-2.5 rounded-lg border border-indigo-100 bg-indigo-50/50 px-3 py-2 text-sm text-slate-800">
+                  <span className="mr-1 font-semibold text-indigo-700">Fix:</span>
                   {f.recommendation}
-                </p>
+                </div>
                 {f.evidence && (
-                  <p className="mt-1 text-xs text-slate-500">Evidence: {f.evidence}</p>
+                  <p className="mt-2 font-mono text-xs text-slate-500">↳ {f.evidence}</p>
                 )}
               </li>
             ))}
@@ -153,32 +265,14 @@ export function ScanResults({ result }: { result: ScanResult }) {
         </section>
       ))}
 
-      <details className="card p-6">
+      <details className="card p-4">
         <summary className="cursor-pointer text-sm font-medium text-slate-700">
-          Raw scan data
+          Show raw scan data (JSON)
         </summary>
-        <pre className="mt-3 max-h-96 overflow-auto rounded bg-slate-900 p-3 text-xs text-slate-100">
+        <pre className="mt-3 max-h-96 overflow-auto rounded-lg bg-slate-900 p-3 text-xs text-slate-100">
           {JSON.stringify(result, null, 2)}
         </pre>
       </details>
-    </div>
-  );
-}
-
-function ScoreCard({ label, value }: { label: string; value: number | null }) {
-  const display = value === null || value === undefined ? "—" : value;
-  const color =
-    value === null || value === undefined
-      ? "text-slate-400"
-      : value >= 90
-      ? "text-emerald-600"
-      : value >= 70
-      ? "text-amber-600"
-      : "text-red-600";
-  return (
-    <div className="card p-4">
-      <div className="text-xs uppercase tracking-wider text-slate-500">{label}</div>
-      <div className={`mt-1 text-3xl font-bold ${color}`}>{display}</div>
     </div>
   );
 }

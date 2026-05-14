@@ -16,6 +16,20 @@ Cloud-only MVP that audits a website for GDPR / DPDP / CCPA compliance, accessib
 
 No headless browsers, no databases, no background workers. Everything runs in serverless route handlers.
 
+## Pages
+
+| Path | Purpose |
+| --- | --- |
+| `/` | Hero, live scan form, results, comparison, FAQ, CTA |
+| `/how-it-works` | Technical pipeline breakdown |
+| `/compare` | Tool-by-tool comparison vs Lighthouse, WAVE, Cookiebot, GTmetrix, SEMrush |
+| `/about` | Mission + audience |
+| `/privacy` | Our own privacy policy (dogfooded) |
+| `/terms` | Terms of service |
+| `/sitemap.xml` | Auto-generated |
+| `/robots.txt` | Auto-generated |
+| `/opengraph-image` | Dynamic OG image (1200x630) |
+
 ## What it checks
 
 - **Compliance / privacy:** trackers loaded without a cookie consent banner (GDPR / ePrivacy / DPDP), missing privacy policy, missing terms, missing contact / imprint
