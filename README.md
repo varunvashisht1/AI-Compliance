@@ -73,7 +73,11 @@ Returns the full `ScanResult` JSON (see `lib/scanner/types.ts`). `region` is one
 Body: the `ScanResult` JSON from `/api/scan`.  
 Response: `application/pdf` download.
 
-## Deploying to Vercel
+## Deployment
+
+There are two valid deployment targets, and they are not mutually exclusive.
+
+### Vercel (full app — required for the scanner to actually work)
 
 1. Push this repo to GitHub.
 2. Import it on Vercel.
@@ -81,6 +85,32 @@ Response: `application/pdf` download.
 4. Deploy.
 
 The `/api/scan` route is configured with `maxDuration = 90` seconds — bump it on Vercel's Pro plan if you need longer (PageSpeed can take 30–60s for slow sites).
+
+### GitHub Pages (marketing site only)
+
+GitHub Pages can't run the server-side `/api/scan` and `/api/report` routes, so this path publishes only the static marketing pages (`/`, `/how-it-works`, `/compare`, `/about`, `/privacy`, `/terms`). The hero scan form redirects users to your Vercel deployment to perform the actual audit.
+
+**Setup (one-time):**
+
+1. Deploy the full app to Vercel first and note the URL (e.g. `https://ai-compliance.vercel.app`).
+2. In the GitHub repo: **Settings → Pages → Source: GitHub Actions**.
+3. (Optional) Set repo variable `SCANNER_URL` under **Settings → Secrets and variables → Actions → Variables** to your Vercel URL. Defaults to `https://ai-compliance.vercel.app`.
+4. Push to `main`. The `.github/workflows/gh-pages.yml` workflow builds and publishes `out/` to Pages.
+
+**How the build works:**
+
+`scripts/build-static.sh` temporarily moves `app/api/*` and `app/opengraph-image.tsx` aside, swaps in `next.config.static.js` (which sets `output: "export"` and `basePath`), runs `next build`, then restores everything. The conditional in `app/page.tsx` reads `NEXT_PUBLIC_STATIC_BUILD` and renders `<ScanFormStatic />` instead of the live `<ScanForm />`. The static form posts to the Vercel URL with `?url=…&region=…` query params.
+
+**Local static build:**
+
+```bash
+BASE_PATH=/AI-Compliance \
+ASSET_PREFIX=/AI-Compliance \
+NEXT_PUBLIC_SITE_URL=https://you.github.io/AI-Compliance \
+NEXT_PUBLIC_SCANNER_URL=https://your-app.vercel.app \
+  bash scripts/build-static.sh
+# Output: ./out/
+```
 
 ## Limitations
 

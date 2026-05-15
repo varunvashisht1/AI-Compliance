@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { ScanForm } from "@/components/ScanForm";
+import { ScanFormStatic } from "@/components/ScanFormStatic";
 import { SITE } from "@/lib/site";
+
+const IS_STATIC = process.env.NEXT_PUBLIC_STATIC_BUILD === "true";
 
 export const metadata = {
   title: undefined,
@@ -57,7 +60,7 @@ function Hero() {
         </div>
 
         <div id="scan" className="mx-auto mt-10 max-w-3xl scroll-mt-20">
-          <ScanForm />
+          {IS_STATIC ? <ScanFormStatic /> : <ScanForm />}
         </div>
 
         <SocialProof />

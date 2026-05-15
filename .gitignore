@@ -10,4 +10,6 @@ out
 coverage
 dist
 tsconfig.tsbuildinfo
+screenshots
+.build-stash
 screenshots/
